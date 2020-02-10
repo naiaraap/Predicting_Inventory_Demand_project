@@ -1,0 +1,202 @@
+SUMMARY
+> summary(train_data[, NumColNames])
+ Venta_uni_hoy        Venta_hoy         Dev_uni_proxima      Dev_proxima      
+ Min.   :   0.000   Min.   :     0.00   Min.   :   0.0000   Min.   :    0.00  
+ 1st Qu.:   2.000   1st Qu.:    16.76   1st Qu.:   0.0000   1st Qu.:    0.00  
+ Median :   3.000   Median :    30.00   Median :   0.0000   Median :    0.00  
+ Mean   :   7.304   Mean   :    68.45   Mean   :   0.1247   Mean   :    1.23  
+ 3rd Qu.:   7.000   3rd Qu.:    56.10   3rd Qu.:   0.0000   3rd Qu.:    0.00  
+ Max.   :4800.000   Max.   :275061.60   Max.   :2400.0000   Max.   :44376.00  
+ Demanda_uni_equil 
+ Min.   :   0.000  
+ 1st Qu.:   2.000  
+ Median :   3.000  
+ Mean   :   7.218  
+ 3rd Qu.:   6.000  
+ Max.   :4800.000  
+
+DESCRIBE
+>describe
+[[1]]
+  statistic     values
+1      name Agencia_ID
+2     count    9800000
+3    unique        552
+4       top       1911
+5      freq     106300
+
+[[2]]
+  statistic      values
+1      name Producto_ID
+2     count     9800000
+3    unique        1601
+4       top        1240
+5      freq      283966
+
+[[3]]
+  statistic     values
+1      name Cliente_ID
+2     count    9800000
+3    unique     799833
+4       top     653378
+5      freq      16357
+
+[[4]]
+  statistic  values
+1      name  Semana
+2     count 9800000
+3    unique       7
+4       top       3
+5      freq 1474987
+
+[[5]]
+  statistic   values
+1      name Canal_ID
+2     count  9800000
+3    unique        9
+4       top        1
+5      freq  8908869
+
+[[6]]
+  statistic   values
+1      name Ruta_SAK
+2     count  9800000
+3    unique     2927
+4       top     1201
+5      freq    60999
+
+[[7]]
+  statistic          values
+1      name   NombreCliente
+2     count         9800000
+3    unique          278828
+4       top NO IDENTIFICADO
+5      freq         1750928
+
+[[8]]
+  statistic                               values
+1      name                       NombreProducto
+2     count                              9800000
+3    unique                                 1601
+4       top Mantecadas Vainilla 4p 125g BIM 1240
+5      freq                               283966
+
+[[9]]
+  statistic               values
+1      name                 Town
+2     count              9800000
+3    unique                  257
+4       top 2017 AG. SANTA CLARA
+5      freq               121405
+
+[[10]]
+  statistic           values
+1      name            State
+2     count          9800000
+3    unique               33
+4       top ESTADO DE MÉXICO
+5      freq          1436825
+
+CORRELATION
+> cor(sample_train_data[, NumColNames])
+                  Venta_uni_hoy Venta_hoy Dev_uni_proxima Dev_proxima Demanda_uni_equil
+Venta_uni_hoy         1.0000000 0.7478626      0.08658960   0.1391385        0.99832842
+Venta_hoy             0.7478626 1.0000000      0.06018880   0.1336498        0.74680788
+Dev_uni_proxima       0.0865896 0.0601888      1.00000000   0.5901745        0.05560754
+Dev_proxima           0.1391385 0.1336498      0.59017446   1.0000000        0.10127361
+Demanda_uni_equil     0.9983284 0.7468079      0.05560754   0.1012736        1.00000000
+
+DEFICT DEMAND VALUES (PESOS)
+> nrow(finantial loss)
+[1] 81048
+
+PERCENT OF NULL SALES
+> round((length(train_data[train_data$Venta_uni_hoy == 0, "Venta_uni_hoy"])/nrow(train_data)) * 100, 2)
+[1] 0.4
+
+PERCENTAGE OF PRODUCTS WITH NO SALES
+> round((num_zero_sales/length(unique(train_data$Producto_ID))) * 100, 2)
+[1] 3
+
+
+MODELS' RMSE AND MAE
+> error
+               Models   Train_MAE  Train_RMSE     Test_MAE    Test_RMSE
+1 Logistic Regression 0.001369024 0.004352634 0.0002220212 0.0006422823
+2    Ridge regression 0.001254280 0.003979373 0.0005039617 0.0012792644
+3       Random Forest 0.001357224 0.004333407 0.0002634336 0.0006215391
+4 k-nearest neighbors 3.861817225 7.689848961 3.6243204193 5.1969513821
+5             xgBoost 0.041065368 0.041198443 0.0409999550 0.0409999550
+
+
+
+SMALLER TRAIN MAE MODEL
+> error[error$Train_MAE == min(error$Train_MAE),]
+            Models  Train_MAE  Train_RMSE     Test_MAE   Test_RMSE
+2 Ridge regression 0.00125428 0.003979373 0.0005039617 0.001279264
+
+SMALLER TRAIN RMSE MODEL
+> error[error$Train_RMSE == min(error$Train_RMSE),]
+            Models  Train_MAE  Train_RMSE     Test_MAE   Test_RMSE
+2 Ridge regression 0.00125428 0.003979373 0.0005039617 0.001279264
+
+SMALLER TEST MAE MODEL
+> error[error$Test_MAE == min(error$Test_MAE),]
+               Models   Train_MAE  Train_RMSE     Test_MAE    Test_RMSE
+1 Logistic Regression 0.001369024 0.004352634 0.0002220212 0.0006422823
+
+SMALLER TEST RMSE MODEL
+> error[error$Test_RMSE == min(error$Test_RMSE),]
+         Models   Train_MAE  Train_RMSE     Test_MAE    Test_RMSE
+3 Random Forest 0.001357224 0.004333407 0.0002634336 0.0006215391
+
+
+LOGISTIC REGRESSION MODEL: SUMMARY
+> summary(logistic)
+
+Call:
+glm(formula = eval(parse(text = Formula)), family = "binomial", 
+    data = sample_norm_model_train)
+
+Deviance Residuals: 
+     Min        1Q    Median        3Q       Max  
+-0.11199  -0.03046  -0.02228  -0.00288   2.13040  
+
+Coefficients:
+             Estimate Std. Error z value             Pr(>|z|)    
+(Intercept) -6.771982   0.253416 -26.723 < 0.0000000000000002 ***
+Canal_ID     0.189809   0.040758   4.657           0.00000321 ***
+StateNum    -0.001452   0.010280  -0.141                0.888    
+Semana       0.002081   0.040662   0.051                0.959    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 269.79  on 99999  degrees of freedom
+Residual deviance: 254.24  on 99996  degrees of freedom
+AIC: 316.97
+
+Number of Fisher Scoring iterations: 9
+
+EVALUATING NEW MODEL
+> MAE(new_test_df$Demanda_uni_equil, predict(newLogistic, new_test_df[, 1:3], type="response"))
+[1] 0.0002220212
+
+> RMSE(new_test_df$Demanda_uni_equil, predict(newLogistic, new_test_df[, 1:3], type="response"))
+[1] 0.0006422823
+
+
+not normalized data MAE and RMSE
+> MAE(x, y)
+[1] 0.9751966
+> RMSE(x, y)
+[1] 3.122724
+
+PAIRED T TEST FOR EVALUATE RELEVANCE OF DIFFERENT BETWEEN TRUE VALUES AND PREDICTED VALUES.
+> t.test(predicted$true_values, predicted$logistic, paired = TRUE)
+
+
+
+
+
