@@ -28,6 +28,6 @@ InventoryDemandTools.R: contains useful functions and variables.
 The generated graphics are in the "graphs" folder and the text output, in the "statistic" folder, "Statistic.txt" file.
 The project documentation with the scripts, outputs and step-by-step description is in the file "InventoryDemand.pdf".
 
-Computer specifications:
-Operational System: Linux, Ubuntu v.18.04.1
+Computer specifications:<br/>
+Operational System: Linux, Ubuntu v.18.04.1<br/>
 CPU Capacity: 3100MHz.
