@@ -17,7 +17,7 @@ I viewed features histograms provided automatically by the Microsoft Azure "Unpa
 
 ```{r Set work directory}
 # Setting work directory
-setwd("/home/naiara/Documentos/DataScience/FCD/BigDataRAzure/Project_Fraud_Detection")
+setwd("/home/naiara/Documentos/DataScience/FCD/BigDataRAzure/Project_Inventory_Demand")
 ```
 # Feature Engineering
 
@@ -279,7 +279,7 @@ num_zero_sales <- train_data %>%
 round((num_zero_sales/length(unique(train_data$Producto_ID))) * 100, 2)
 ```
 
-## Feature selection
+# Feature selection
 
 To choose categorical variables, I created a random forest model using the sample train dataset.
 ```{r random forest}
@@ -304,7 +304,7 @@ varImpPlot(select_model)
 ```
 Analyzing the importance plot I chose to use the following variables: Producto_ID, Ruta_SAK, Channel_ID and Agencia_ID.
 
-## Create Model
+# Create Model
 I created five models to choose the one with the best performance: logistic regression, rigde regression, random forest, k-nearest neighbor and xgboost. Before, I normalized the target variable. For the construction of the model, I used only the dependent categorical variables with a number of levels less than or equal to 100.
 To be able to perform the tests on my machine, I selected smaller samples of the training and test datasets in the proportion 70% and 30% respectively.
 
@@ -394,7 +394,7 @@ xgboostmodel <- xgboost::xgboost(data = as.matrix(sapply(sample_norm_model_train
                                 objective = "binary:logistic", verbose = 1)
 
 ```
-## Score Models
+# Score Models
 After creating the models, I evaluated their scores.
 I calculated the square root of the mean error (RMSD) and the Mean absolute error (MAE) for each model for both train and test dataset:
 ```{r score models}
@@ -469,7 +469,7 @@ error[error$Test_RMSE == min(error$Test_RMSE),]
 ```
 I chose Logistic regression model for presenting low RMSE and MAE values for test dataset.
 
-## Model evaluation and optimization.
+# Model evaluation and optimization.
 
 Once the model was chosen, I tried to optimize it and evaluate its performance.
 I ran a summary of the model and noticed that the variable "Canal_ID" has high significance. Then I tried to normalize all the dependent variables and calculate the MAE and the RMSD and the RMSD and there was no change in the values. So, I increased the weight of the channel variable (as it has high significance) and recalculated the values. Again, the MAE and the RMSD have not been changed.
