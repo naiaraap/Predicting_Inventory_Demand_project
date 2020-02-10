@@ -1,0 +1,527 @@
+---
+title: "Forecasting Sales Demand for Inventor"
+author: "Naiara de Almeida Pantuza"
+date: "23/01/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Description
+
+Planning a celebration is a balancing act of preparing just enough food to go around without being stuck eating the same leftovers for the next week. The key is anticipating how many guests will come. Grupo Bimbo must weigh similar considerations as it strives to meet daily consumer demand for fresh bakery products on the shelves of over 1 million stores along its 45,000 routes across Mexico. In this project, I am suppose to develop a model to accurately forecast inventory demand based on historical sales data.
+
+I viewed features histograms provided automatically by the Microsoft Azure "Unpack Zipped Datasets" function and noticed that the numbers of records for each week are similar. Therefore, I divided dataset into 7 parts, take samples of same size from each part and join it in a single training dataset for data exploratory analysis. This process was executed by a python script.
+
+```{r Set work directory}
+# Setting work directory
+setwd("/home/naiara/Documentos/DataScience/FCD/BigDataRAzure/Project_Fraud_Detection")
+```
+# Feature Engineering
+
+Getting dataset and treating it.
+In the "cliente_tabla" table I will consider the first line of each Cliente_ID if it is duplicated.
+
+I got a sample of the training data set, as well as the remaining datasets available in kaggle. Then, I combine the training, sample, customer, product and region datasets into a single dataset to facilitate exploratory analysis. I did the same for the training and submission dataset (dataset with the correct test predictions).
+
+```{r combine data}
+# Getting and visualizing all datasets
+# Get the first 10.000.000 rows of train dataset
+train <- read.csv(unz("data/sample_train.zip", "sample_train.csv"))
+
+# Getting customer data
+customer <- read.csv(unz("data/cliente_tabla.csv.zip", "cliente_tabla.csv"))
+
+# Getting product data
+product <- read.csv(unz("data/producto_tabla.csv.zip", "producto_tabla.csv"))
+
+# Getting test data
+test <- read.csv(unz("data/test.csv.zip", "test.csv"))
+
+# Getting town/state data
+townState <- read.csv(unz("data/town_state.csv.zip", "town_state.csv"))
+
+# Getting sample_submission data
+submission <- read.csv(unz("data/sample_submission.csv.zip", "sample_submission.csv"))
+
+# Visualizing each dataset
+head(train)
+head(customer)
+head(product)
+head(test)
+head(townState)
+head(submission)
+
+# Eliminating columns created
+train$X <- NULL
+train$Unnamed..0 <- NULL
+
+# Getting first row for each duplication
+#Loading required library
+library(dplyr)
+
+# Eliminating duplicate ids in the clients' table
+# Getting first row for each Cliente_ID
+customer <- customer %>%
+  group_by(Cliente_ID) %>%
+  slice(1)
+
+# Merging datasets for analysis
+train_data <- merge(train, customer, by = "Cliente_ID")
+train_data <- merge(train_data, product, by = "Producto_ID")
+train_data <- merge(train_data, townState, by = "Agencia_ID")
+
+# Merging test dataset and respective demand
+test_data <- merge(test, submission, by = "id")
+
+# Saving merged datasets on csv files
+write.csv(train_data, "data/train_data.zip")
+write.csv(test_data, "data/test_data.zip")
+
+```
+I also cleaned and transformed the data before analyzing it.
+```{r tranforming data}
+# Removing extra variable
+# train_data$X <- NULL
+test_data$X <- NULL
+test_data$id <- NULL
+
+# Checking test and train data
+str(train_data)
+str(test_data)
+
+head(test_data)
+head(train_data)
+
+# Checking for missing values
+any(is.na(train_data))
+any(is.na(test_data))
+
+# Converting categorical variables to factor
+train_data[, 1:6] <- data.frame(lapply(train_data[,1:6],
+                                       function (x) {return(x <- as.factor(x))}))
+
+test_data[, 1:6] <- data.frame(lapply(test_data[,1:6],
+                                       function (x) {return(x <- as.factor(x))}))
+```
+# Exploratory Analysis
+
+Here I did some exploration, statistical and graphic analysis. To facilitate exploratory analysis, I built the script "InventoryDemandTools.R", which contains variables and auxiliary functions.
+I colleted data statistic information and plotted histograms to see features' distribution.
+
+```{r individual features}
+# Loading Tools.R script
+source("src/InventoryDemandTools.R")
+
+# Getting summary of train_data numerical features
+summary(train_data[, NumColNames])
+
+# Getting statistics of train_data categorial features
+lapply(FacColNames, describe)
+
+```
+
+```{r individual features - plots}
+# Visual analysis by plotting
+# Loading libraries
+library(dplyr)
+library(ggplot2)
+
+# Get the number of unique values for categoriacal dependent variables
+uniq <- sapply(train_data[, FacColNames], function(x) {return(length(unique(x)))})
+uniq_data <- data.frame(value=uniq, name=names(uniq), row.names = NULL)
+uniq <- NULL
+
+# Disabling scientific notation in R
+options(scipen = 999)
+
+# Bar plot of the number of single values
+uniq_plot <- ggplot(uniq_data, aes(x=name, y=value, fill=name)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Number of unique values per feature of sample train dataset") +
+  xlab("Feature") +
+  ylab("log(unique count)") +
+  scale_y_log10(limits = c(1,1e6)) +
+  geom_text(aes(label = sprintf("%d", value), y=value),  vjust = -0.5) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 0.8, size=11,color="black")) +
+  theme(axis.text.y = element_text(hjust = 0.5, size=10,color="black"))
+
+uniq_plot
+uniq_plot <- NULL
+
+# Plotting htograms of train_data numeric features
+for (name in NumColNames) { hist_graph(name)}
+
+# Barplot of train_data categorical features
+for (name in FacColNames) { freq_graph(name)}
+```
+## Checking for relation between features
+
+Here I check for correlation between features. To avoid processing problems I did correlation analysis with a less sample of the data.
+```{r Correlation and table}
+# Getting random sample
+set.seed(10000000)
+index <- sample(1:nrow(train_data), size=100000)
+sample_train_data <- train_data[index,]
+
+# getting correlation values
+cor(sample_train_data[, NumColNames])
+
+# Install package
+# install.packages("GGally")
+
+# Different correlation plots
+GGally::ggcorr(sample_train_data[, NumColNames], palette = "RdBu", label = TRUE)
+GGally::ggpairs(sample_train_data[, NumColNames])
+```
+As noted above, there are strong positive correlations between the following variables: demand and number of sales, demand and value of sales, number of sales and value of sales. There is a parcial positive correlation between the amount of returns and its value. Finally, the variables demand and returns' amount, number of sales and returns' amount, values of sales and returns' amount have a weak positive correlation. No negative correlation was observed.
+
+## Checking for demand, sale and return patterns.
+Then, I grouped variables to look for patterns.
+For better visualization of the graphs, I made the graphs with two y-axes to match the scales of returns and sales.
+
+I grouped the training data by each of the following variables: "Agencia_ID", "Producto_ID", "Cliente_ID", "Semana", "Canal_ID", "Ruta_SAK", "Town", "State". Then, I collected and visualized demand, sales and returns (units and price in pesos). For variables in many categories, I selected the first 100 records ordered in three different ways: number of demand, sales and returns. For these variables, 6 graphs were constructed: one graph with values in units and one for values in pesos for each of the three types of sorting. For variables of a few categories, 2 graphs (unit and pesos) were constructed for the grouped variable.
+
+The x-axis does not represent the variable ids, just a sequence that varies from 1 to the total of plotted records.
+
+```{r graphs of grouped data}
+# grouping data by features to check for pattens of sales, returns and demand.
+# sales scale on the left and return scale on the right.
+for (name in names(translatedNames)) { demand_grouped_by(name)  }
+
+# grouping data by client to check for pattens of sales, returns and demand.
+# Values changed to log10 scale to better visualization.
+log_demand_grouped_by_graph("Cliente_ID")
+```
+All graphs present practically equal curves for demands and sales, which confirms the high correlation value between both variables. In addition, the quantity and value graphs are very similar, which also points to a high correlation between the quantity and the value in pesos of the analyzed variables.
+
+A brief description of what was observed in the graphs grouped by the variables:
+
+* Agency:
+The values of return for best sellers do not differ much from the rate of highest returns. The demand and sale rates however differ, being less in the higher return ids.
+
+* Channel:
+Channels with high demand have high returns, which points to a certain correlation between both. Approximately half of the channels have a higher return than demand/sale.
+
+* Client:
+The values of return for best sellers do not differ much from the rate of highest returns. The demand and sale rates however differ, being less in the higher return ids. The ids with the highest demand / return have these variables greater than the return. The highest return ids have many values with a higher return than demand and sale.
+
+* Product:
+The values of return, sale and demand for best sellers do not differ much from the rate of highest returns. The ids with the highest demand / return have these variables greater than the return. The highest return ids have many values with a higher return than demand and sale. High-return ids tend to have high demand and sales. There are many ids with higher returns on demand and sales.
+
+* Route:
+The values of return, sale and demand for best sellers do not differ much from the rate of highest returns. Most analyzed ids have higher demand and sales than return.
+
+* State:
+Most ids have higher return than demand and sales. States with high demand seem to have high returns.
+
+* Town:
+The values of return, sale and demand for best sellers do not differ much from the rate of highest returns. Cities with high demand seem to have high returns. Many ids have greater return than demand and sale.
+
+* Week:
+All week values are similar. Most analyzed ids have higher return than demand and sales.
+
+## Checking for of negative financial balance patterns.
+I decided to analyze the financial loss. I called it a financial loss when the difference between the sale price and the return price was less than zero. So I added a column with the price differences to the training dataset and filtered the value records less than zero. Then I grouped the data by variables to plot the number of records and their value. I made two barplots: one with the number of records per group and the other with the value per group. For variables in many categories, I selected the first 100 records ordered by money loss (module).
+
+```{r analysing money loss }
+# financial loss dataframe
+finantial_loss <- train_data[train_data$demand_value < 0 ,
+                             c(names(translatedNames), "demand_value")]
+
+# Checking the number of records with deficit values (negative demand value)
+nrow(finantial_loss)
+
+```
+
+A brief description of what was observed in the graphs grouped by the variables:
+
+* Agency:
+The number of agencies with a deficit in value is not highly correlated to their value. There is greater variation in the quantity compared to the values.
+
+* Channel:
+Channels with a high return value have many records of monetary loss. Channel 1 has a greater financial loss, with amounts and registers' amount much higher than the others.
+
+* Client:
+The number of clients with a deficit in value is not highly correlated to their value. There is a wide amplitude in the quantity and values. In general, the values and quantities per customer are low.
+
+* Product:
+The number of products with a deficit in value is not highly correlated to their value. There is a wide variation in the quantity and values.
+
+* Route:
+The values do not vary so much, the number of records per route is high.
+
+* State:
+There is a wide amplitude in the quantity and values. The value and the quantity seem to be related.
+
+* Town:
+The values do not vary so much, the number of records per town is high.
+
+* Week:
+Values and quantities have very low variation. The value and the quantity seem to be related.
+
+Finally, I decided to calculate the percentage of records with zero sales and the percentage of products with no sales.
+
+```{no sale products and registers}
+# Calculating the percentage of null sales.
+round((length(train_data[train_data$Venta_uni_hoy == 0, "Venta_uni_hoy"])/nrow(train_data)) * 100, 2)
+
+# Calculating the percentage of products that had no sales.
+num_zero_sales <- train_data %>%
+  group_by(Producto_ID) %>%
+  summarise(sale_count = sum(Venta_uni_hoy)) %>%
+  filter(sale_count == 0) %>%
+  data.frame() %>%
+  nrow()
+
+round((num_zero_sales/length(unique(train_data$Producto_ID))) * 100, 2)
+```
+
+## Feature selection
+
+To choose categorical variables, I created a random forest model using the sample train dataset.
+```{r random forest}
+# Feature selecting categorical variables
+# Converting categorical variables to integer:
+train_data[, names(translatedNames)] <- as.data.frame(lapply(train_data[, names(translatedNames)], as.integer))
+sample_train_data[, names(translatedNames)] <- as.data.frame(lapply(sample_train_data[, names(translatedNames)],
+                                                             as.integer))
+
+# Creating formula before creating model
+Formula <- "Demanda_uni_equil ~ "
+for (name in names(translatedNames)) { Formula <- paste(Formula, name, "+") }
+Formula <- substr(Formula, start = 1, stop = nchar(Formula)-2)
+
+# randomForest model using sample train dataset for avoid crashing.
+select_model <- randomForest (eval(parse(text = Formula)), data = sample_train_data,
+                              ntree = 100, nodesize = 10,
+                              importance = TRUE)
+
+# Plotting features' importance
+varImpPlot(select_model)
+```
+Analyzing the importance plot I chose to use the following variables: Producto_ID, Ruta_SAK, Channel_ID and Agencia_ID.
+
+## Create Model
+I created five models to choose the one with the best performance: logistic regression, rigde regression, random forest, k-nearest neighbor and xgboost. Before, I normalized the target variable. For the construction of the model, I used only the dependent categorical variables with a number of levels less than or equal to 100.
+To be able to perform the tests on my machine, I selected smaller samples of the training and test datasets in the proportion 70% and 30% respectively.
+
+```{r Creating models}
+# Creating numeric feature for state
+# Train dataset
+train_data$StateNum <- train_data$State
+levels(train_data$StateNum) <- seq(1:33)
+train_data$StateNum <- as.integer(train_data$StateNum)
+
+#Test dataset
+test_data$StateNum <- test_data$State
+levels(test_data$StateNum) <- seq(1:33)
+test_data$StateNum <- as.integer(test_data$StateNum)
+
+# Converting categorical features to numeric
+for (name in ModelColNames) { train_data[, name] <- as.integer(train_data[, name])
+                              test_data[, name] <- as.integer(test_data[, name]) }
+
+# Saving transformed dataset
+write.csv(train_data[, c(ModelColNames, "Demanda_uni_equil")], "data/model_train_data.csv")
+write.csv(test_data[, c(ModelColNames, "Demanda_uni_equil")], "data/model_test_data.csv")
+
+model_train <- train_data[, c(ModelColNames, "Demanda_uni_equil")]
+model_test <- test_data[, c(ModelColNames, "Demanda_uni_equil")]
+
+# Using variables with cardinality less than or equal to 100.
+Formula <- "Demanda_uni_equil ~ Canal_ID + StateNum + Semana"
+
+# Normalize integer feature
+for (name in names(translatedNames)[1:6]) { train_data[, name] <- normalize(train_data[, name]) }
+
+# Getting data
+# Train
+model_train <- read.csv(unz("data/model_train_data.zip", "model_train_data.csv"))
+model_train <- model_train[,2:ncol(model_train)]
+
+# Test
+model_test <- read.csv(unz("data/model_test_data.zip", "model_test_data.csv"))
+model_test <- model_test[2:ncol(model_test)]
+
+# Normalising train dataset
+norm_model_train <- model_train
+norm_model_train$Demanda_uni_equil <- normalize(norm_model_train$Demanda_uni_equil)
+
+
+# Normalising test dataset
+norm_model_test <- model_test
+norm_model_test$Demanda_uni_equil <- equalNormalize(x=norm_model_test$Demanda_uni_equil,
+                                                    y=model_train$Demanda_uni_equil)
+
+# Getting dataset train sample for 
+set.seed(10000000)
+index <- sample(1:nrow(norm_model_train), size=100000)
+sample_norm_model_train <- norm_model_train[index,]
+
+# Getting test dataset sample in proportion: training (70%) test (30%)
+index <- sample(1:nrow(norm_model_test), size=round(100000*3/7))
+sample_norm_test <- norm_model_test[index,]
+
+# Logistic regression
+logistic <- glm(formula = eval(parse(text = Formula)), data = sample_norm_model_train, family = "binomial")
+
+# randomForest model
+forest <- randomForest::randomForest (eval(parse(text = Formula)), data = sample_norm_model_train,
+                                      ntree = 100, nodesize = 10)
+
+# Ridge Regression model
+RidgeMod <- ridge::linearRidge(eval(parse(text = Formula)), data = sample_norm_model_train)
+
+# k-nearest neighbor
+knnTestPred <- DMwR::kNN(eval(parse(text = Formula)),
+                         sample_norm_model_train, 
+                         sample_norm_test[,1:7],
+                         norm=FALSE, k=13)
+
+knnTrainPred <- DMwR::kNN(eval(parse(text = Formula)),
+                         sample_norm_model_train, 
+                         sample_norm_model_train[,1:7],
+                         norm=FALSE, k=13)
+
+
+# xgBoost model  
+xgboostmodel <- xgboost::xgboost(data = as.matrix(sapply(sample_norm_model_train[1:7], as.numeric)),
+                                label = sample_norm_model_train$Demanda_uni_equil,
+                                max.depth = 2, eta = 1, nthread = 2, nrounds = 2, 
+                                objective = "binary:logistic", verbose = 1)
+
+```
+## Score Models
+After creating the models, I evaluated their scores.
+I calculated the square root of the mean error (RMSD) and the Mean absolute error (MAE) for each model for both train and test dataset:
+```{r score models}
+# Predict
+# logistic prediction
+predicted <- data.frame(true_values = sample_norm_test$Demanda_uni_equil,
+                        logistic = predict(logistic, sample_norm_test[,1:7], type="response"))
+
+# random forest prediction
+predicted$randomForest <- predict(forest, sample_norm_test[,1:7])
+
+# ridge regression prediction
+predicted$ridge <- predict(RidgeMod, sample_norm_test[,1:7])
+
+# k-nearest neighbor prediction
+predicted$knn <- as.numeric(knnTestPred)
+
+# xgboost prediction
+predicted$xgboost <- predict(xgboostmodel, as.matrix(sample_norm_test[,1:7]))
+
+
+# appending predictions of the training datasets for calculating RMSD and MAE.
+# logistic
+predictedTrain <- data.frame(true_values = sample_norm_model_train$Demanda_uni_equil,
+                             logistic = predict(logistic, sample_norm_model_train[,1:7], type="response"))
+
+# random forest train prediction
+predictedTrain$randomForest <- predict(forest, sample_norm_model_train[,1:7])
+
+# ridge regression train prediction
+predictedTrain$ridge <- predict(RidgeMod, sample_norm_model_train[,1:7])
+
+# k-nearest neighbor train prediction
+predictedTrain$knn <- as.numeric(knnTrainPred)
+
+# xgboost train prediction
+predictedTrain$xgboost <- predict(xgboostmodel, as.matrix(sample_norm_model_train[,1:7]))
+
+# Calculating RMSD and MAE
+# Creating dataframe to store values
+error <- data.frame(Models =c("Logistic Regression", "Ridge regression", "Random Forest",
+                               "k-nearest neighbors", "xgBoost"),
+                    Train_MAE = c(0,0,0,0,0),
+                    Train_RMSE = c(0,0,0,0,0),
+                    Test_MAE = c(0,0,0,0,0),
+                    Test_RMSE = c(0,0,0,0,0))
+
+# Getting MAE and RMSE for train prediction and test prediction
+i <- 1
+for (model in names(predictedTrain[2:6])) {
+  error$Train_MAE[i] <-MAE(predictedTrain$true_values, predictedTrain[, model])
+  error$Train_RMSE[i] <-RMSE(predictedTrain$true_values, predictedTrain[, model])
+  error$Test_MAE[i] <-MAE(predicted$true_values, predicted[, model])
+  error$Test_RMSE[i] <-RMSE(predicted$true_values, predicted[, model])
+  i = i + 1
+}
+
+# Models it's RMSE and MAE
+error
+
+# Smaller train_MAE model
+error[error$Train_MAE == min(error$Train_MAE),]
+
+# Smaller train_RMSE model
+error[error$Train_RMSE == min(error$Train_RMSE),]
+
+# Smaller test_MAE model
+error[error$Test_MAE == min(error$Test_MAE),]
+
+# Smaller test_RMSE model
+error[error$Test_RMSE == min(error$Test_RMSE),]
+```
+I chose Logistic regression model for presenting low RMSE and MAE values for test dataset.
+
+## Model evaluation and optimization.
+
+Once the model was chosen, I tried to optimize it and evaluate its performance.
+I ran a summary of the model and noticed that the variable "Canal_ID" has high significance. Then I tried to normalize all the dependent variables and calculate the MAE and the RMSD and the RMSD and there was no change in the values. So, I increased the weight of the channel variable (as it has high significance) and recalculated the values. Again, the MAE and the RMSD have not been changed.
+```{r optimize and evaluate}
+# Summary model
+summary(logistic)
+
+# Modifing dataframe to try to improve logistic regression model
+new_train_df <- sample_norm_model_train[,c("Canal_ID", "StateNum", "Semana", "Demanda_uni_equil")]
+new_test_df <- sample_norm_test[,c("Canal_ID", "StateNum", "Semana", "Demanda_uni_equil")]
+
+# Normalizing all variables
+new_train_df[, 1:3] <- data.frame(lapply(new_train_df[, 1:3], normalize))
+new_test_df[, 1:3] <- data.frame(mapply(equalNormalize, new_test_df[, 1:3],
+                                        sample_norm_model_train[, c("Canal_ID", "StateNum", "Semana")]))
+
+
+# Using variables with cardinality less than or equal to 100.
+Formula <- "Demanda_uni_equil ~ Canal_ID + StateNum + Semana"
+
+# New model
+newLogistic <- glm(formula = eval(parse(text = Formula)), data = new_train_df, family = "binomial")
+
+# Evaluating new model
+MAE(new_test_df$Demanda_uni_equil, predict(newLogistic, new_test_df[, 1:3], type="response"))
+RMSE(new_test_df$Demanda_uni_equil, predict(newLogistic, new_test_df[, 1:3], type="response"))
+
+# RMSE and MAE values didn't change, so I used original values for dependent variables
+new_train_df <- sample_norm_model_train[,c("Canal_ID", "StateNum", "Semana", "Demanda_uni_equil")]
+new_test_df <- sample_norm_test[,c("Canal_ID", "StateNum", "Semana", "Demanda_uni_equil")]
+
+# As the variable "Canal_ID" has a high level of significance, I will increase its weight
+# Multiplying channel by 3
+new_train_df$Canal_ID <- 10*new_train_df$Canal_ID
+new_test_df$Canal_ID <- 10*new_test_df$Canal_ID
+
+# New model
+newLogistic <- glm(formula = eval(parse(text = Formula)), data = new_train_df, family = "binomial")
+
+# Evaluating new model
+MAE(new_test_df$Demanda_uni_equil, predict(newLogistic, new_test_df[, 1:3], type="response"))
+RMSE(new_test_df$Demanda_uni_equil, predict(newLogistic, new_test_df[, 1:3], type="response"))
+```
+RMSE and MAE values didn't change, so I evaluated original logistic model. I changed the predicted and actual values to their original non-formalized form and calculated the MAE and RMSD values.
+```{r evaluate final model}
+# Getting not-normalized data
+x <- round(original_values(x=predicted$logistic, y=model_train$Demanda_uni_equil))
+y <- round(original_values(x=predicted$true_values, y=model_train$Demanda_uni_equil))
+z <- round(original_values(x=predicted$randomForest, y=model_train$Demanda_uni_equil))
+
+# not normalized data MAE and RMSE
+MAE(x, y)
+RMSE(x, y)
+```
+The final version of the model presents MAE = 0.97 and RMSD = 3.12 for the evaluated samples.
