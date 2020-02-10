@@ -30,4 +30,4 @@ The project documentation with the scripts, outputs and step-by-step description
 
 Computer specifications:
 Operational System: Linux, Ubuntu v.18.04.1
-CPU Capacity: 3100MHz
+CPU Capacity: 3100MHz.
