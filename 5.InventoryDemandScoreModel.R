@@ -2,7 +2,7 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #                                                                         #
-# Forecasting Sales Demand for Inventor                                   #
+# Forecasting Sales Demand for Inventory                                  #
 #                                                                         #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
