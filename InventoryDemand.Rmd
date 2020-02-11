@@ -1,5 +1,5 @@
 ---
-title: "Forecasting Sales Demand for Inventor"
+title: "Forecasting Sales Demand for Inventory"
 author: "Naiara de Almeida Pantuza"
 date: "23/01/2020"
 output: pdf_document
@@ -75,10 +75,11 @@ train_data <- merge(train_data, townState, by = "Agencia_ID")
 
 # Merging test dataset and respective demand
 test_data <- merge(test, submission, by = "id")
+test_data <- merge(test_data, townState, by = "Agencia_ID")
 
 # Saving merged datasets on csv files
-write.csv(train_data, "data/train_data.zip")
-write.csv(test_data, "data/test_data.zip")
+# write.csv(train_data, "data/train_data.zip")
+# write.csv(test_data, "data/test_data.zip")
 
 ```
 I also cleaned and transformed the data before analyzing it.
@@ -187,9 +188,10 @@ I grouped the training data by each of the following variables: "Agencia_ID", "P
 The x-axis does not represent the variable ids, just a sequence that varies from 1 to the total of plotted records.
 
 ```{r graphs of grouped data}
+source("src/InventoryDemandTools.R")
 # grouping data by features to check for pattens of sales, returns and demand.
 # sales scale on the left and return scale on the right.
-for (name in names(translatedNames)) { demand_grouped_by(name)  }
+for (name in names(translatedNames)) { demand_grouped_by_graph(name)  }
 
 # grouping data by client to check for pattens of sales, returns and demand.
 # Values changed to log10 scale to better visualization.
@@ -227,14 +229,17 @@ All week values are similar. Most analyzed ids have higher return than demand an
 I decided to analyze the financial loss. I called it a financial loss when the difference between the sale price and the return price was less than zero. So I added a column with the price differences to the training dataset and filtered the value records less than zero. Then I grouped the data by variables to plot the number of records and their value. I made two barplots: one with the number of records per group and the other with the value per group. For variables in many categories, I selected the first 100 records ordered by money loss (module).
 
 ```{r analysing money loss }
+# Adding a column with the demand value (sales minus returns)
+train_data$demand_value <- train_data$Venta_hoy - train_data$Dev_proxima
+
 # financial loss dataframe
 finantial_loss <- train_data[train_data$demand_value < 0 ,
                              c(names(translatedNames), "demand_value")]
 
 # Checking the number of records with deficit values (negative demand value)
 nrow(finantial_loss)
-
 ```
+
 
 A brief description of what was observed in the graphs grouped by the variables:
 
@@ -264,7 +269,7 @@ Values and quantities have very low variation. The value and the quantity seem t
 
 Finally, I decided to calculate the percentage of records with zero sales and the percentage of products with no sales.
 
-```{no sale products and registers}
+```{r  sale products and registers}
 # Calculating the percentage of null sales.
 round((length(train_data[train_data$Venta_uni_hoy == 0, "Venta_uni_hoy"])/nrow(train_data)) * 100, 2)
 
@@ -282,7 +287,7 @@ round((num_zero_sales/length(unique(train_data$Producto_ID))) * 100, 2)
 # Feature selection
 
 To choose categorical variables, I created a random forest model using the sample train dataset.
-```{r random forest}
+```{r randomforest}
 # Feature selecting categorical variables
 # Converting categorical variables to integer:
 train_data[, names(translatedNames)] <- as.data.frame(lapply(train_data[, names(translatedNames)], as.integer))
@@ -295,12 +300,12 @@ for (name in names(translatedNames)) { Formula <- paste(Formula, name, "+") }
 Formula <- substr(Formula, start = 1, stop = nchar(Formula)-2)
 
 # randomForest model using sample train dataset for avoid crashing.
-select_model <- randomForest (eval(parse(text = Formula)), data = sample_train_data,
+select_model <- randomForest::randomForest (eval(parse(text = Formula)), data = sample_train_data,
                               ntree = 100, nodesize = 10,
                               importance = TRUE)
 
 # Plotting features' importance
-varImpPlot(select_model)
+randomForest::varImpPlot(select_model)
 ```
 Analyzing the importance plot I chose to use the following variables: Producto_ID, Ruta_SAK, Channel_ID and Agencia_ID.
 
@@ -325,8 +330,8 @@ for (name in ModelColNames) { train_data[, name] <- as.integer(train_data[, name
                               test_data[, name] <- as.integer(test_data[, name]) }
 
 # Saving transformed dataset
-write.csv(train_data[, c(ModelColNames, "Demanda_uni_equil")], "data/model_train_data.csv")
-write.csv(test_data[, c(ModelColNames, "Demanda_uni_equil")], "data/model_test_data.csv")
+# write.csv(train_data[, c(ModelColNames, "Demanda_uni_equil")], "data/model_train_data.csv")
+# write.csv(test_data[, c(ModelColNames, "Demanda_uni_equil")], "data/model_test_data.csv")
 
 model_train <- train_data[, c(ModelColNames, "Demanda_uni_equil")]
 model_test <- test_data[, c(ModelColNames, "Demanda_uni_equil")]
@@ -339,12 +344,12 @@ for (name in names(translatedNames)[1:6]) { train_data[, name] <- normalize(trai
 
 # Getting data
 # Train
-model_train <- read.csv(unz("data/model_train_data.zip", "model_train_data.csv"))
-model_train <- model_train[,2:ncol(model_train)]
+# model_train <- read.csv(unz("data/model_train_data.zip", "model_train_data.csv"))
+# model_train <- model_train[,2:ncol(model_train)]
 
 # Test
-model_test <- read.csv(unz("data/model_test_data.zip", "model_test_data.csv"))
-model_test <- model_test[2:ncol(model_test)]
+# model_test <- read.csv(unz("data/model_test_data.zip", "model_test_data.csv"))
+# model_test <- model_test[2:ncol(model_test)]
 
 # Normalising train dataset
 norm_model_train <- model_train
